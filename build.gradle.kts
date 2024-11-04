@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "1.9.22"
+    id("me.champeau.jmh") version "0.6.8"
 }
 
 group = "org.example"
@@ -10,8 +11,6 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:dataframe:0.14.1")
-
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     // JUnit 5
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")

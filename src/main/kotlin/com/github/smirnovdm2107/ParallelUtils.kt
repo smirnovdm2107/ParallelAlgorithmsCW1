@@ -5,12 +5,11 @@ import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.ThreadLocalRandom
 import kotlin.math.sqrt
 
-val forkJoin = ForkJoinPool.commonPool()
-fun parallelFor(n: Int, blockSize: Int = sqrt(n.toDouble()).toInt(), block: (Int) -> Unit) {
+fun ForkJoinPool.parallelFor(n: Int, blockSize: Int = sqrt(n.toDouble()).toInt(), block: (Int) -> Unit) {
     parallelFor(0, n, blockSize, block)
 }
 
-private fun parallelFor(l: Int, r: Int, blockSize: Int = sqrt((r - l).toDouble()).toInt(), block: (Int) -> Unit) {
+private fun ForkJoinPool.parallelFor(l: Int, r: Int, blockSize: Int = sqrt((r - l).toDouble()).toInt(), block: (Int) -> Unit) {
     if (r - l <= blockSize) {
         for (i in l until r) {
             block(i)
@@ -18,21 +17,21 @@ private fun parallelFor(l: Int, r: Int, blockSize: Int = sqrt((r - l).toDouble()
         return
     }
     val m = (l + r) / 2
-    val f1 = forkJoin.submit {
+    val f1 = submit {
         parallelFor(l, m, blockSize, block)
     }
-    val f2 = forkJoin.submit {
+    val f2 = submit {
         parallelFor(m, r, blockSize, block)
     }
     f1.join()
     f2.join()
 }
 
-fun <T> parallelReduce(arr: List<T>, blockSize: Int = sqrt(arr.size.toDouble()).toInt(), reduce: (T, T) -> T): T {
+fun <T> ForkJoinPool.parallelReduce(arr: List<T>, blockSize: Int = sqrt(arr.size.toDouble()).toInt(), reduce: (T, T) -> T): T {
     return parallelReduce(arr, 0, arr.size, blockSize, reduce)
 }
 
-private fun <T> parallelReduce(
+private fun <T> ForkJoinPool.parallelReduce(
     arr: List<T>,
     l: Int,
     r: Int,
@@ -47,31 +46,32 @@ private fun <T> parallelReduce(
         return res
     }
     val m = (l + r) / 2
-    val f1 = forkJoin.submit<T> {
+    val f1 = submit<T> {
         parallelReduce(arr, l, m, blockSize, reduce)
     }
-    val f2 = forkJoin.submit<T> {
+    val f2 = submit<T> {
         parallelReduce(arr, m, r, blockSize, reduce)
     }
     return reduce(f1.join(), f2.join())
 }
 
-fun <T, R> parallelMap(
-    arr: List<T>,
+
+fun ForkJoinPool.parallelMap(
+    arr: IntArray,
     blockSize: Int = sqrt(arr.size.toDouble()).toInt(),
-    mapper: (T) -> R,
-): List<R> {
-    val result: MutableList<Any?> = (arrayOfNulls<Any?>(arr.size)).toMutableList()
+    mapper: (Int) -> Int,
+): IntArray {
+    val result = IntArray(arr.size)
     parallelMap(arr, 0, arr.size, mapper, result, blockSize)
-    return result as List<R>
+    return result
 }
 
-private fun <T, R> parallelMap(
-    arr1: List<T>,
+private fun ForkJoinPool.parallelMap(
+    arr1: IntArray,
     l: Int,
     r: Int,
-    mapper: (T) -> R,
-    arr2: MutableList<R>,
+    mapper: (Int) -> Int,
+    arr2: IntArray,
     blockSize: Int = sqrt(arr1.size.toDouble()).toInt()
 ) {
     if (r - l <= blockSize) {
@@ -81,54 +81,52 @@ private fun <T, R> parallelMap(
         return
     }
     val m = (l + r) / 2
-    val f1 = forkJoin.submit {
+    val f1 = submit {
         parallelMap(arr1, l, m, mapper, arr2)
     }
-    val f2 = forkJoin.submit {
+    val f2 = submit {
         parallelMap(arr1, m, r, mapper, arr2)
     }
     f1.join()
     f2.join()
 }
 
-fun <T> parallelScan(
-    arr: List<T>,
-    zero: T,
+fun ForkJoinPool.parallelScan(
+    arr: IntArray,
     blockSize: Int = sqrt(arr.size.toDouble()).toInt(),
-    reduce: (T, T) -> T
-): List<T> {
-    val result: MutableList<Any?> = arrayOfNulls<Any>(arr.size).toMutableList()
+    reduce: (Int, Int) -> Int
+): IntArray {
+    val result = IntArray(arr.size)
     parallelFor(arr.size, blockSize) {
         result[it] = arr[it]
     }
-    val resultT = result as MutableList<T>
-    upScan(resultT, 0, arr.size, blockSize, reduce)
-    result[arr.size - 1] = zero
-    downScan(resultT, 0, arr.size, blockSize, reduce)
-    return resultT
+    upScan(result, 0, arr.size, blockSize, reduce)
+    result[arr.size - 1] = 0
+    downScan(result, 0, arr.size, blockSize, reduce)
+    return result
 }
 
-fun <T> upScan(
-    arr: MutableList<T>,
+private fun ForkJoinPool.upScan(
+    arr: IntArray,
     l: Int,
     r: Int,
     blockSize: Int = sqrt(arr.size.toDouble()).toInt(),
-    reduce: (T, T) -> T
-): T {
+    reduce: (Int, Int) -> Int
+): Int {
     if (r - l == 1) {
         return arr[l]
     }
     val m = (l + r) / 2
-    val left: T
-    val right: T
+    val left: Int
+    val right: Int
     if (r - l < blockSize) {
         left = upScan(arr, l, m, blockSize, reduce)
         right = upScan(arr, m, r, blockSize, reduce)
     } else {
-        val leftF = forkJoin.submit<T> {
+        val leftF = submit<Int> {
             upScan(arr, l, m, blockSize, reduce)
         }
-        val rightF = forkJoin.submit<T> {
+        val rightF = submit<Int> {
             upScan(arr, m, r, blockSize, reduce)
         }
         left = leftF.join()
@@ -138,12 +136,12 @@ fun <T> upScan(
     return arr[r - 1]
 }
 
-fun <T> downScan(
-    arr: MutableList<T>,
+private fun ForkJoinPool.downScan(
+    arr: IntArray,
     l: Int,
     r: Int,
     blockSize: Int = sqrt(arr.size.toDouble()).toInt(),
-    reduce: (T, T) -> T
+    reduce: (Int, Int) -> Int
 ) {
     if (r - l == 1) {
         return
@@ -156,10 +154,10 @@ fun <T> downScan(
         downScan(arr, l, m, blockSize, reduce)
         downScan(arr, m, r, blockSize, reduce)
     } else {
-        val leftF = forkJoin.submit {
+        val leftF = submit {
             downScan(arr, l, m, blockSize, reduce)
         }
-        val rightF = forkJoin.submit {
+        val rightF = submit {
             downScan(arr, m, r, blockSize, reduce)
         }
         leftF.join()
@@ -167,15 +165,17 @@ fun <T> downScan(
     }
 }
 
-fun <T> parallelFilter(
-    arr: List<T>,
+fun ForkJoinPool.parallelFilter(
+    arr: IntArray,
+    l: Int,
+    r: Int,
     blockSize: Int = sqrt(arr.size.toDouble()).toInt(),
-    block: (T) -> Boolean,
-): List<T> {
-    val mapped: List<Int> = parallelMap(arr, blockSize) { if (block(it)) 1 else 0 }
-    val prefix: List<Int> = parallelScan(mapped, 0, blockSize) { a, b -> a + b }
+    block: (Int) -> Boolean,
+): IntArray {
+    val mapped: IntArray = parallelMap(arr, blockSize) { if (block(it)) 1 else 0 }
+    val prefix: IntArray = parallelScan(mapped, blockSize) { a, b -> a + b }
     val filteredSize = prefix[prefix.size - 1] + mapped[prefix.size - 1]
-    val result = arrayOfNulls<Any?>(filteredSize).toMutableList()
+    val result = IntArray(filteredSize)
     parallelFor(prefix.size - 1, blockSize) {
         if (prefix[it + 1] == prefix[it] + 1) {
             result[prefix[it]] = arr[it]
@@ -184,6 +184,6 @@ fun <T> parallelFilter(
     if (mapped[mapped.size - 1] == 1) {
         result[result.size - 1] = arr[arr.size - 1]
     }
-    return result as List<T>
+    return result
 }
 

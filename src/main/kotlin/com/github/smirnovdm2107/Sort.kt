@@ -1,55 +1,72 @@
 package com.github.smirnovdm2107
 
-import java.util.Stack
+import java.util.concurrent.ForkJoinPool
+import java.util.concurrent.ThreadLocalRandom
+import kotlin.random.Random
 
 object Sort {
 
-    fun <T> sequentialQuickSort(
-        arr: MutableList<T>,
-        comparator: Comparator<in T>,
-        stack: Stack<MutableList<T>> = Stack<MutableList<T>>()
+
+    fun sequentialQuickSort(
+        arr: IntArray
     ) {
-        if (arr.size <= 1) {
-            return
-        }
-        val m = partition(arr, comparator)
-        if (arr.size == 2) {
-            return
-        }
-        sequentialQuickSort(arr.subList(0, m + 1), comparator, stack)
-        sequentialQuickSort(arr.subList(m + 1, arr.size), comparator, stack)
+        sequentialQuickSort(arr, 0, arr.size)
     }
 
-    fun <T> parallelQuickSort(
-        arr: MutableList<T>,
-        comparator: Comparator<in T>,
+    private fun sequentialQuickSort(
+        arr: IntArray,
+        l: Int,
+        r: Int
+    ) {
+        if (r - l <= 1) {
+            return
+        }
+        val m = partition(arr, l, r)
+        if (r - l == 2) {
+            return
+        }
+        sequentialQuickSort(arr, l, m + 1)
+        sequentialQuickSort(arr, m + 1, r)
+    }
+
+    fun ForkJoinPool.parallelQuickSort(
+        arr: IntArray,
         blockSize: Int
     ) {
-        if (arr.size <= blockSize) {
-            sequentialQuickSort(arr, comparator)
+        parallelQuickSort(arr, 0, arr.size, blockSize)
+    }
+
+    private fun ForkJoinPool.parallelQuickSort(
+        arr: IntArray,
+        l: Int,
+        r: Int,
+        blockSize: Int
+    ) {
+        if (r - l <= blockSize) {
+            sequentialQuickSort(arr, l, r)
             return
         }
 
-        val m = partition(arr, comparator)
-        if (arr.size == 2) {
+        val m = partition(arr, l, r)
+        if (r - l == 2) {
             return
         }
-        val sortedLeftFuture = forkJoin.submit { parallelQuickSort(arr.subList(0, m + 1), comparator, blockSize) }
-        val sortedRightFuture = forkJoin.submit { parallelQuickSort(arr.subList(m + 1, arr.size), comparator, blockSize) }
+        val sortedLeftFuture = submit { parallelQuickSort(arr, l, m + 1, blockSize) }
+        val sortedRightFuture = submit { parallelQuickSort(arr, m + 1, r, blockSize) }
 
         sortedLeftFuture.join()
         sortedRightFuture.join()
     }
 
-    private fun <T> partition(arr: MutableList<T>, comparator: Comparator<in T>): Int {
-        val t = arr[arr.size / 2]
-        var i = 0
-        var j = arr.size - 1
+    private fun partition(arr: IntArray, l: Int, r: Int): Int {
+        val t = arr[(l + r) / 2]
+        var i = l
+        var j = r - 1
         while (i <= j) {
-            while (comparator.compare(arr[i], t) < 0) {
+            while (i < arr.size && arr[i] < t) {
                 i++
             }
-            while (comparator.compare(arr[j], t) > 0) {
+            while (j >= 0 && arr[j] > t) {
                 j--
             }
             if (i >= j) {
@@ -62,6 +79,54 @@ object Sort {
             j--
         }
         return j
+    }
+
+    fun ForkJoinPool.parallelQuickSort2(
+        arr: IntArray,
+        blockSize: Int
+    ) {
+        parallelQuickSort2(arr, 0, arr.size, blockSize)
+    }
+
+    private fun ForkJoinPool.parallelQuickSort2(
+        arr: IntArray,
+        l: Int,
+        r: Int,
+        blockSize: Int
+    ) {
+        if (r - l <= blockSize) {
+            sequentialQuickSort(arr, l, r)
+            return
+        }
+        val pivot = arr[Random.nextInt(l, r)]
+        val left = parallelFilter(arr, l, r, blockSize) { it < pivot }
+        val middle = parallelFilter(arr, l, r, blockSize) { it == pivot }
+        val right = parallelFilter(arr, l, r, blockSize) { it > pivot }
+        if (r - l == 2) {
+            return
+        }
+        parallelFor(r - l) {
+            if (it < left.size) {
+                arr[l + it] = left[it]
+            } else if (it < left.size + middle.size) {
+                arr[l + it] = middle[it - left.size]
+            } else {
+                arr[l + it] = right[it - left.size - middle.size]
+            }
+        }
+        val sortedLeftFuture = submit { parallelQuickSort(arr, l, l + left.size, blockSize) }
+        val sortedRightFuture = submit { parallelQuickSort(arr, r - right.size, r, blockSize) }
+
+        sortedLeftFuture.join()
+        sortedRightFuture.join()
+    }
+
+    private fun partition2(
+        arr: IntArray,
+        l: Int,
+        r: Int
+    ) {
+
     }
 
 }
