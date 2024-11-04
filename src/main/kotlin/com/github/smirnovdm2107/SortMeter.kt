@@ -3,38 +3,40 @@ package com.github.smirnovdm2107
 object SortMeter {
 
     fun <T> meterAll(
-        arraySupplier: () -> List<T>,
+        arr: List<T>,
         iter: Int,
-        sorters: List<(List<T>) -> List<T>>
+        sorters: List<(MutableList<T>) -> Unit>
     ): List<Double> {
-        return sorters.map { meter(arraySupplier, iter, it) }
+        return sorters.map { meter(arr, iter, it) }
     }
 
     // return avg nanos
     private fun <T> meter(
-        arraySupplier: () -> List<T>,
+        arr: List<T>,
         iter: Int,
-        sorter: (List<T>) -> List<T>
+        sorter: (MutableList<T>) -> Unit
     ): Double {
         var sum = 0L
+        System.gc()
+        Thread.sleep(1000)
         // warming up the goys
-        meter(arraySupplier, sorter)
+        println("start warmup")
+        meter(arr, sorter)
         repeat(iter) {
             println(it)
-            sum += meter(arraySupplier, sorter)
+            sum += meter(arr, sorter)
         }
         return sum.toDouble().div(iter)
     }
 
     // return nanos
     private fun <T> meter(
-        arraySupplier: () -> List<T>,
-        sorter: (List<T>) -> List<T>
+        arr: List<T>,
+        sorter: (MutableList<T>) -> Unit
     ): Long {
-        val arr = arraySupplier()
-        val startTs = System.nanoTime()
-        sorter(arr)
-        val endTs = System.nanoTime()
+        val startTs = System.currentTimeMillis()
+        sorter(arr.toMutableList())
+        val endTs = System.currentTimeMillis()
         return endTs - startTs
     }
 }
