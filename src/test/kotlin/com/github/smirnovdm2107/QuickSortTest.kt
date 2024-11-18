@@ -105,8 +105,9 @@ class QuickSortTest {
             val blockSize: Int
         ): Sorter() {
             override fun invoke(arr: IntArray) {
+                val sandbox = IntArray(arr.size * 2)
                 val pool = ForkJoinPool(parallelism)
-                pool.parallelQuickSort2(arr, blockSize)
+                pool.parallelQuickSort2(arr, sandbox, blockSize)
             }
         }
     }

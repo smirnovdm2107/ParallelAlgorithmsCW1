@@ -8,7 +8,7 @@ open class ParallelQuickSort2Benchmark : RandomArrayBenchmark() {
     private val parallelism = 4
 
     @Benchmark
-    fun parallelQuickSortBenchmark() {
-        ForkJoinPool(parallelism).parallelQuickSort2(arr, 1000)
+    fun parallelQuickSortBenchmark2() {
+        ForkJoinPool(parallelism).parallelQuickSort2(arr, sandbox)
     }
 }
