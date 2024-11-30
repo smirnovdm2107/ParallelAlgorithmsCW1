@@ -10,4 +10,6 @@ Comparasion of 3 algorithms wit sorting array of ints (size = 10e8):
 | ParallelQuickSort           | avgt |    5 |    3676.072 ± |  854.568 |  ms/op |
 | SequentialQuickSort         |  avgt |    5 |   11853.940 ± |   210.409 |  ms/op |
 
+Performace scale ~ 3.22 
+
 To start benchmark test use `./gradlew jmh`
